@@ -15,7 +15,6 @@ import {
 } from "./components/ui/toast";
 import { useCallback, useEffect, useState } from "react";
 
-import APIKeyPromptOnStartup from "./components/shared/APIKeyPromptOnStartup";
 import SubscribedApp from "./_pages/SubscribedApp";
 import { ToastContext } from "./contexts/toast";
 
@@ -36,11 +35,16 @@ const queryClient = new QueryClient({
 
 // Root component that provides the QueryClient
 function App() {
-  const [toastState, setToastState] = useState({
+  const [toastState, setToastState] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    variant: "neutral" | "success" | "error";
+  }>({
     open: false,
     title: "",
     description: "",
-    variant: "neutral" as const,
+    variant: "neutral",
   });
   const [initialized, setInitialized] = useState(false);
   const [currentLanguage, setCurrentLanguage] = useState<string>(
@@ -103,9 +107,6 @@ function App() {
       <ToastContext.Provider value={{ showToast }}>
         <ToastProvider>
           <div className="min-h-screen bg-transparent">
-            {/* Add API Key Prompt */}
-            <APIKeyPromptOnStartup />
-
             {initialized && (
               <SubscribedApp
                 currentLanguage={currentLanguage}
@@ -128,7 +129,7 @@ function App() {
                 )}
               </div>
             </Toast>
-            <ToastViewport />
+            <ToastViewport className="fixed bottom-0 right-0 max-w-xs" />
           </div>
         </ToastProvider>
       </ToastContext.Provider>
