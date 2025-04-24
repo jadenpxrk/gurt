@@ -51,14 +51,6 @@ Gurt is a desktop application designed to help users with technical coding inter
    yarn build
    ```
 
-## API Integration
+## Jaden Notes
 
-This version of the application still requires an API connection to process screenshots and generate solutions. You'll need to set up your own API service or modify the code to use a different solution generation method.
-
-## Disclaimer
-
-This modified version is for educational purposes only. The original Gurt application is a commercial product with subscription requirements.
-
-## License
-
-This project is licensed under the ISC License.
+When you change the API config, you have to scroll near the screenshot button overlay, it's an invisible scrollbar.
