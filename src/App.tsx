@@ -1,11 +1,4 @@
-// Add global styles for markdown
-import "./styles/markdown.css";
-
-import {
-  QueryClient,
-  QueryClientProvider,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Toast,
   ToastDescription,

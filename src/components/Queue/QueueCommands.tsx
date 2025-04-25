@@ -78,11 +78,15 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // Ensure window is interactive when component unmounts
     return () => {
       window.electronAPI
-        .setIgnoreMouseEvents()
+        .setInteractiveMouseEvents()
         .catch((err: unknown) =>
-          console.warn("Failed to set ignore mouse events on unmount:", err)
+          console.warn(
+            "Failed to set interactive mouse events on unmount:",
+            err
+          )
         );
       if (hideTimeoutRef.current) {
         clearTimeout(hideTimeoutRef.current);

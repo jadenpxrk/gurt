@@ -317,6 +317,9 @@ async function createWindow(): Promise<void> {
 
   state.mainWindow = new BrowserWindow(windowSettings);
 
+  // Ensure window starts non-interactive (click-through) immediately
+  state.mainWindow.setIgnoreMouseEvents(true, { forward: true });
+
   // Add more detailed logging for window events
   state.mainWindow.webContents.on("did-finish-load", () => {
     console.log("Window finished loading");
@@ -442,7 +445,8 @@ function showMainWindow(): void {
         ...state.windowSize,
       });
     }
-    state.mainWindow.setIgnoreMouseEvents(false);
+    // Ensure window starts non-interactive (click-through)
+    state.mainWindow.setIgnoreMouseEvents(true, { forward: true });
     state.mainWindow.setAlwaysOnTop(true, "screen-saver", 1);
     state.mainWindow.setVisibleOnAllWorkspaces(true, {
       visibleOnFullScreen: true,

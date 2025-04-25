@@ -103,11 +103,26 @@ const Debug: React.FC<DebugProps> = ({
   const queryClient = useQueryClient();
   const contentRef = useRef<HTMLDivElement>(null);
 
+  // Log state on each render
+  console.log(
+    "[Debug Render] isProcessing:",
+    isProcessing,
+    "newCode:",
+    !!newCode,
+    "thoughtsData:",
+    !!thoughtsData
+  );
+
   // Set window non-interactive when Debug view mounts
   useEffect(() => {
     console.log("Debug view mounted, making window non-interactive initially.");
     window.electronAPI.setIgnoreMouseEvents();
-    // No cleanup needed here, as SolutionCommands handles it on unmount
+
+    // Cleanup function: Make window interactive again when component unmounts
+    return () => {
+      console.log("Debug view unmounting, making window interactive.");
+      window.electronAPI.setInteractiveMouseEvents();
+    };
   }, []);
 
   useEffect(() => {
@@ -134,20 +149,21 @@ const Debug: React.FC<DebugProps> = ({
         event.query.queryKey[0] === "new_solution" &&
         event.query.state.status === "success" // Ensure data is successfully fetched/updated
       ) {
-        const newSolutionData = event.query.state.data as {
-          new_code: string;
-          thoughts: string[];
-          time_complexity: string;
-          space_complexity: string;
-        } | null;
-
-        if (newSolutionData) {
-          setNewCode(newSolutionData.new_code || null);
-          setThoughtsData(newSolutionData.thoughts || null);
-          setTimeComplexityData(newSolutionData.time_complexity || null);
-          setSpaceComplexityData(newSolutionData.space_complexity || null);
-          setIsProcessing(false); // Stop loading AFTER state is updated
-        }
+        // State updates are now handled directly in onDebugSuccess
+        // const newSolutionData = event.query.state.data as {
+        //   new_code: string;
+        //   thoughts: string[];
+        //   time_complexity: string;
+        //   space_complexity: string;
+        // } | null;
+        //
+        // if (newSolutionData) {
+        //   setNewCode(newSolutionData.new_code || null);
+        //   setThoughtsData(newSolutionData.thoughts || null);
+        //   setTimeComplexityData(newSolutionData.time_complexity || null);
+        //   setSpaceComplexityData(newSolutionData.space_complexity || null);
+        //   setIsProcessing(false); // This was moved to onDebugSuccess
+        // }
       }
     });
 
@@ -166,10 +182,24 @@ const Debug: React.FC<DebugProps> = ({
         queryClient.setQueryData(["new_solution"], null);
       }),
       window.electronAPI.onDebugSuccess((data) => {
-        // Update the cache; the subscription below will handle state updates
+        console.log("[Debug Success] Event received. Data:", data);
+        // Update the cache
         queryClient.setQueryData(["new_solution"], data);
-        // Stop loading immediately after successful data reception and cache update
+
+        // Directly update component state
+        console.log("[Debug Success] Setting newCode...");
+        setNewCode(data.new_code || null);
+        console.log("[Debug Success] Setting thoughtsData...");
+        setThoughtsData(data.thoughts || null);
+        console.log("[Debug Success] Setting timeComplexityData...");
+        setTimeComplexityData(data.time_complexity || null);
+        console.log("[Debug Success] Setting spaceComplexityData...");
+        setSpaceComplexityData(data.space_complexity || null);
+
+        // Stop loading immediately
+        console.log("[Debug Success] Setting isProcessing to false...");
         setIsProcessing(false);
+        console.log("[Debug Success] State updates complete.");
       }),
       window.electronAPI.onDebugError((error: string) => {
         showToast(
