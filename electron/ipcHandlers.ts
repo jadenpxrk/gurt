@@ -310,4 +310,23 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
       return { error: "Failed to move window down" };
     }
   });
+
+  // Window interaction handlers
+  ipcMain.handle("set-ignore-mouse-events", () => {
+    const mainWindow = deps.getMainWindow();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setIgnoreMouseEvents(true, { forward: true }); // Forward enables tooltips etc.
+      return { success: true };
+    }
+    return { success: false, error: "Main window not available" };
+  });
+
+  ipcMain.handle("set-interactive-mouse-events", () => {
+    const mainWindow = deps.getMainWindow();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setIgnoreMouseEvents(false);
+      return { success: true };
+    }
+    return { success: false, error: "Main window not available" };
+  });
 }

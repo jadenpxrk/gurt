@@ -1,13 +1,10 @@
 import { ComplexitySection, ContentSection } from "./Solutions";
 import React, { useEffect, useRef, useState } from "react";
-// Debug.tsx
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Screenshot } from "../types/screenshots";
 import ScreenshotQueue from "../components/Queue/ScreenshotQueue";
 import SolutionCommands from "../components/Solutions/SolutionCommands";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useToast } from "../contexts/toast";
 
 const CodeSection = ({
@@ -22,33 +19,32 @@ const CodeSection = ({
   currentLanguage: string;
 }) => (
   <div className="space-y-2">
-    <h2 className="text-[13px] font-medium text-white tracking-wide"></h2>
+    <h2 className="text-[13px] font-medium text-foreground tracking-wide"></h2>
     {isLoading ? (
       <div className="space-y-1.5">
         <div className="mt-4 flex">
-          <p className="text-xs bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 bg-clip-text text-transparent animate-pulse">
+          <p className="text-xs text-muted-foreground animate-pulse">
             Loading solutions...
           </p>
         </div>
       </div>
     ) : (
       <div className="w-full">
-        <SyntaxHighlighter
-          showLineNumbers
-          language={currentLanguage == "golang" ? "go" : currentLanguage}
-          style={dracula}
-          customStyle={{
-            maxWidth: "100%",
-            margin: 0,
-            padding: "1rem",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-all",
-            backgroundColor: "rgba(22, 27, 34, 0.5)",
+        {/* Use Shadcn variables for Debug code block styling */}
+        <pre
+          className="p-4 rounded text-sm whitespace-pre-wrap break-all overflow-x-auto border"
+          style={{
+            color: "hsl(var(--muted-foreground))",
           }}
-          wrapLongLines={true}
         >
-          {code as string}
-        </SyntaxHighlighter>
+          <code
+            className={`language-${
+              currentLanguage == "golang" ? "go" : currentLanguage
+            }`}
+          >
+            {code}
+          </code>
+        </pre>
       </div>
     )}
   </div>
@@ -107,33 +103,73 @@ const Debug: React.FC<DebugProps> = ({
   const queryClient = useQueryClient();
   const contentRef = useRef<HTMLDivElement>(null);
 
+  // Set window non-interactive when Debug view mounts
   useEffect(() => {
-    // Try to get the new solution data from cache first
-    const newSolution = queryClient.getQueryData(["new_solution"]) as {
+    console.log("Debug view mounted, making window non-interactive initially.");
+    window.electronAPI.setIgnoreMouseEvents();
+    // No cleanup needed here, as SolutionCommands handles it on unmount
+  }, []);
+
+  useEffect(() => {
+    // Initial load from cache (if available on component mount)
+    const initialNewSolution = queryClient.getQueryData(["new_solution"]) as {
       new_code: string;
       thoughts: string[];
       time_complexity: string;
       space_complexity: string;
     } | null;
 
-    // If we have cached data, set all state variables to the cached data
-    if (newSolution) {
-      setNewCode(newSolution.new_code || null);
-      setThoughtsData(newSolution.thoughts || null);
-      setTimeComplexityData(newSolution.time_complexity || null);
-      setSpaceComplexityData(newSolution.space_complexity || null);
+    if (initialNewSolution) {
+      setNewCode(initialNewSolution.new_code || null);
+      setThoughtsData(initialNewSolution.thoughts || null);
+      setTimeComplexityData(initialNewSolution.time_complexity || null);
+      setSpaceComplexityData(initialNewSolution.space_complexity || null);
       setIsProcessing(false);
     }
 
-    // Set up event listeners
+    // Subscribe to cache changes for new_solution
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (
+        event?.type === "updated" &&
+        event.query.queryKey[0] === "new_solution" &&
+        event.query.state.status === "success" // Ensure data is successfully fetched/updated
+      ) {
+        const newSolutionData = event.query.state.data as {
+          new_code: string;
+          thoughts: string[];
+          time_complexity: string;
+          space_complexity: string;
+        } | null;
+
+        if (newSolutionData) {
+          setNewCode(newSolutionData.new_code || null);
+          setThoughtsData(newSolutionData.thoughts || null);
+          setTimeComplexityData(newSolutionData.time_complexity || null);
+          setSpaceComplexityData(newSolutionData.space_complexity || null);
+          setIsProcessing(false); // Stop loading AFTER state is updated
+        }
+      }
+    });
+
     const cleanupFunctions = [
+      // Listeners specific to the Debug view
       window.electronAPI.onScreenshotTaken(() => refetch()),
       window.electronAPI.onResetView(() => refetch()),
-      window.electronAPI.onDebugSuccess(() => {
-        setIsProcessing(false);
-      }),
       window.electronAPI.onDebugStart(() => {
         setIsProcessing(true);
+        // Clear previous debug data on new start
+        setNewCode(null);
+        setThoughtsData(null);
+        setTimeComplexityData(null);
+        setSpaceComplexityData(null);
+        // Also clear the cache for the new solution when starting
+        queryClient.setQueryData(["new_solution"], null);
+      }),
+      window.electronAPI.onDebugSuccess((data) => {
+        // Update the cache; the subscription below will handle state updates
+        queryClient.setQueryData(["new_solution"], data);
+        // Stop loading immediately after successful data reception and cache update
+        setIsProcessing(false);
       }),
       window.electronAPI.onDebugError((error: string) => {
         showToast(
@@ -141,9 +177,11 @@ const Debug: React.FC<DebugProps> = ({
           "There was an error debugging your code.",
           "error"
         );
+        // Ensure loading stops on error
         setIsProcessing(false);
         console.error("Processing error:", error);
       }),
+      unsubscribe, // Add unsubscribe to cleanup
     ];
 
     // Set up resize observer
@@ -171,7 +209,7 @@ const Debug: React.FC<DebugProps> = ({
       resizeObserver.disconnect();
       cleanupFunctions.forEach((cleanup) => cleanup());
     };
-  }, [queryClient, setIsProcessing]);
+  }, [queryClient, setIsProcessing, refetch]);
 
   const handleTooltipVisibilityChange = (visible: boolean, height: number) => {
     setTooltipVisible(visible);
@@ -212,17 +250,19 @@ const Debug: React.FC<DebugProps> = ({
       </div>
 
       {/* Navbar of commands with the tooltip */}
-      <SolutionCommands
-        screenshots={screenshots}
-        onTooltipVisibilityChange={handleTooltipVisibilityChange}
-        isProcessing={isProcessing}
-        extraScreenshots={screenshots}
-        currentLanguage={currentLanguage}
-        setLanguage={setLanguage}
-      />
+      <div className="relative z-10">
+        <SolutionCommands
+          screenshots={screenshots}
+          onTooltipVisibilityChange={handleTooltipVisibilityChange}
+          isProcessing={isProcessing}
+          extraScreenshots={screenshots}
+          currentLanguage={currentLanguage}
+          setLanguage={setLanguage}
+        />
+      </div>
 
       {/* Main Content */}
-      <div className="w-full text-sm text-black bg-black/60 rounded-md">
+      <div className="w-full text-sm text-foreground rounded-md select-none bg-background/80 backdrop-blur-md">
         <div className="rounded-lg overflow-hidden">
           <div className="px-4 py-3 space-y-4">
             {/* Thoughts Section */}
@@ -234,7 +274,7 @@ const Debug: React.FC<DebugProps> = ({
                     <div className="space-y-1">
                       {thoughtsData.map((thought, index) => (
                         <div key={index} className="flex items-start gap-2">
-                          <div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0" />
+                          <div className="w-1 h-1 rounded-full bg-primary mt-2 shrink-0" />
                           <div>{thought}</div>
                         </div>
                       ))}

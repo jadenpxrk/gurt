@@ -90,7 +90,7 @@ export const UpdateNotification: React.FC = () => {
   return (
     <Dialog open={true}>
       <DialogContent
-        className="bg-black/90 text-white border-white/20"
+        className="bg-card/90 text-card-foreground border-border"
         onPointerDownOutside={(e) => e.preventDefault()}
       >
         <DialogTitle className="text-lg font-semibold">
@@ -98,7 +98,7 @@ export const UpdateNotification: React.FC = () => {
             ? "Update Ready to Install"
             : "A New Version is Available"}
         </DialogTitle>
-        <DialogDescription className="text-sm text-white/70 mb-6">
+        <DialogDescription className="text-sm text-muted-foreground mb-6">
           {updateDownloaded
             ? "The update has been downloaded and will be installed when you restart the app."
             : "A new version of Gurt is available. Please update to continue using the app."}
@@ -108,7 +108,7 @@ export const UpdateNotification: React.FC = () => {
             <Button
               variant="outline"
               onClick={handleInstallUpdate}
-              className="border-white/20 hover:bg-white/10"
+              className="border-border hover:bg-accent"
             >
               Restart and Install
             </Button>
@@ -117,7 +117,7 @@ export const UpdateNotification: React.FC = () => {
               variant="outline"
               onClick={handleStartUpdate}
               disabled={isDownloading}
-              className="border-white/20 hover:bg-white/10"
+              className="border-border hover:bg-accent"
             >
               {isDownloading ? "Downloading..." : "Download Update"}
             </Button>

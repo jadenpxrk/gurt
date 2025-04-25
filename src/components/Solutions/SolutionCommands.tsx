@@ -71,7 +71,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
   const [isTooltipVisible, setIsTooltipVisible] = useState(false);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const { showToast } = useToast();
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const hideTimeoutRef = useRef<NodeJS.Timeout>();
   const [apiKey, setApiKey] = useState("");
   const [selectedModel, setSelectedModel] = useState(
     () => MODEL_OPTIONS.find((model) => model.default)?.id || "o3"
@@ -79,6 +79,19 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    return () => {
+      window.electronAPI
+        .setIgnoreMouseEvents()
+        .catch((err: unknown) =>
+          console.warn("Failed to set ignore mouse events on unmount:", err)
+        );
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const loadCurrentConfig = async () => {
@@ -121,6 +134,8 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
 
       if (result.success) {
         showToast("API configuration saved successfully.", "", "success");
+        setIsTooltipVisible(false);
+        window.electronAPI.setIgnoreMouseEvents();
       } else {
         setError(result.error || "Failed to save configuration");
       }
@@ -144,45 +159,39 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
       tooltipHeight = tooltipRef.current.offsetHeight + 10;
     }
     onTooltipVisibilityChange(isTooltipVisible, tooltipHeight);
-  }, [isTooltipVisible]);
+  }, [isTooltipVisible, onTooltipVisibilityChange]);
 
-  const handleMouseEnter = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
+  const handleTriggerMouseEnter = () => {
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
     }
     setIsTooltipVisible(true);
   };
 
-  const handleMouseLeave = (e: React.MouseEvent) => {
-    const relatedTarget = e.relatedTarget as HTMLElement;
-    if (
-      relatedTarget?.closest('[role="listbox"]') ||
-      relatedTarget?.closest("[data-radix-select-viewport]") ||
-      relatedTarget?.closest("[data-radix-select-content]") ||
-      relatedTarget?.closest("form") ||
-      tooltipRef.current?.contains(relatedTarget)
-    ) {
-      return;
-    }
-
-    timeoutRef.current = setTimeout(() => {
+  const handleTriggerMouseLeave = () => {
+    hideTimeoutRef.current = setTimeout(() => {
       setIsTooltipVisible(false);
+      window.electronAPI.setIgnoreMouseEvents();
     }, 100);
   };
 
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
+  const handleTooltipContentMouseEnter = () => {
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+    }
+    window.electronAPI.setInteractiveMouseEvents();
+  };
+
+  const handleTooltipContentMouseLeave = () => {
+    window.electronAPI.setIgnoreMouseEvents();
+    setIsTooltipVisible(false);
+  };
 
   return (
     <div className="select-none">
       <div className="pt-2 w-fit">
         <div className="text-xs text-foreground backdrop-blur-md bg-background/80 rounded-lg py-2 px-4 flex items-center justify-center gap-4 select-none pointer-events-none">
-          <div className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-muted transition-colors">
+          <div className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-muted transition-colors pointer-events-none">
             <span className="text-xs leading-none">Show/Hide</span>
             <div className="flex gap-1">
               <button className="bg-muted rounded-md px-1.5 py-1 text-xs leading-none">
@@ -196,7 +205,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
 
           {!isProcessing && (
             <>
-              <div className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-muted transition-colors">
+              <div className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-muted transition-colors pointer-events-none">
                 <span className="text-xs leading-none truncate">
                   {extraScreenshots.length === 0
                     ? "Screenshot your code"
@@ -216,7 +225,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
               </div>
 
               {extraScreenshots.length > 0 && (
-                <div className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-muted transition-colors">
+                <div className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-muted transition-colors pointer-events-none">
                   <span className="text-xs leading-none">Debug</span>
                   <div className="flex gap-1">
                     <button className="bg-muted rounded-md px-1.5 py-1 text-xs leading-none">
@@ -231,7 +240,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
             </>
           )}
 
-          <div className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-muted transition-colors">
+          <div className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-muted transition-colors pointer-events-none">
             <span className="text-xs leading-none">Start Over</span>
             <div className="flex gap-1">
               <button className="bg-muted rounded-md px-1.5 py-1 text-xs leading-none">
@@ -243,12 +252,12 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
             </div>
           </div>
 
-          <div className="mx-2 h-4 w-px bg-border pointer-events-auto" />
+          <div className="mx-2 h-4 w-px bg-border" />
 
           <div
             className="relative inline-block pointer-events-auto"
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
+            onMouseEnter={handleTriggerMouseEnter}
+            onMouseLeave={handleTriggerMouseLeave}
           >
             <div className="w-4 h-4 flex items-center justify-center cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
               <Settings size={16} />
@@ -257,15 +266,14 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
             {isTooltipVisible && (
               <div
                 ref={tooltipRef}
-                className="absolute top-full left-0 mt-4 w-80 transform -translate-x-[calc(50%-12px)] z-[100] pointer-events-auto"
-                onMouseEnter={handleMouseEnter}
-                onMouseLeave={handleMouseLeave}
+                className="absolute top-full left-0 mt-4 w-[310px] transform -translate-x-[calc(100%-32px)] z-[100] pointer-events-auto"
+                onMouseEnter={handleTooltipContentMouseEnter}
+                onMouseLeave={handleTooltipContentMouseLeave}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="absolute -top-2 right-0 w-full h-2" />
-                <div className="p-3 text-xs bg-background/80 backdrop-blur-md rounded-lg border border-border text-foreground shadow-lg select-none">
+                <div className="mt-2 p-3 text-xs bg-background/80 backdrop-blur-md rounded-lg text-foreground shadow-lg">
                   <div className="space-y-4">
-                    <h3 className="font-medium truncate px-2 mb-2 select-none">
+                    <h3 className="font-medium truncate select-none">
                       Keyboard Shortcuts
                     </h3>
                     <div className="space-y-3">
@@ -277,7 +285,10 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
                               {COMMAND_KEY}
                             </span>
                             <span className="bg-muted px-1.5 py-0.5 rounded text-xs leading-none">
-                              \
+                              {UpArrowIcon}
+                            </span>
+                            <span className="bg-muted px-1.5 py-0.5 rounded text-xs leading-none">
+                              {BackslashIcon}
                             </span>
                           </div>
                         </div>
@@ -286,54 +297,54 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
                         </p>
                       </div>
 
-                      {!isProcessing && (
-                        <>
-                          <div className="rounded px-2 py-1.5 transition-colors select-none">
-                            <div className="flex items-center justify-between">
-                              <span className="truncate">Take Screenshot</span>
-                              <div className="flex gap-1 flex-shrink-0">
-                                <span className="bg-muted px-1.5 py-0.5 rounded text-xs leading-none">
-                                  {COMMAND_KEY}
-                                </span>
-                                <span className="bg-muted px-1.5 py-0.5 rounded text-xs leading-none">
-                                  ⇧
-                                </span>
-                                <span className="bg-muted px-1.5 py-0.5 rounded text-xs leading-none">
-                                  \
-                                </span>
-                              </div>
-                            </div>
-                            <p className="text-xs leading-relaxed text-muted-foreground mt-1">
-                              Capture additional parts of the question or your
-                              solution for debugging help.
-                            </p>
+                      <div className="rounded px-2 py-1.5 transition-colors select-none">
+                        <div className="flex items-center justify-between">
+                          <span className="truncate">Take Screenshot</span>
+                          <div className="flex gap-1 flex-shrink-0">
+                            <span className="bg-muted px-1.5 py-0.5 rounded text-xs leading-none">
+                              {COMMAND_KEY}
+                            </span>
+                            <span className="bg-muted px-1.5 py-0.5 rounded text-xs leading-none">
+                              {UpArrowIcon}
+                            </span>
+                            <span className="bg-muted px-1.5 py-0.5 rounded text-xs leading-none">
+                              {BackslashIcon}
+                            </span>
                           </div>
+                        </div>
+                        <p className="text-xs leading-relaxed text-muted-foreground truncate mt-1">
+                          Take a screenshot of the problem description.
+                        </p>
+                      </div>
 
-                          {extraScreenshots.length > 0 && (
-                            <div className="rounded px-2 py-1.5 transition-colors select-none">
-                              <div className="flex items-center justify-between">
-                                <span className="truncate">Debug</span>
-                                <div className="flex gap-1 flex-shrink-0">
-                                  <span className="bg-muted px-1.5 py-0.5 rounded text-xs leading-none">
-                                    {COMMAND_KEY}
-                                  </span>
-                                  <span className="bg-muted px-1.5 py-0.5 rounded text-xs leading-none">
-                                    ↵
-                                  </span>
-                                </div>
-                              </div>
-                              <p className="text-xs leading-relaxed text-muted-foreground mt-1">
-                                Generate new solutions based on all previous and
-                                newly added screenshots.
-                              </p>
-                            </div>
-                          )}
-                        </>
-                      )}
+                      <div
+                        className={`rounded px-2 py-1.5 transition-colors select-none ${
+                          (extraScreenshots?.length || 0) < 2
+                            ? "opacity-50"
+                            : ""
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="truncate">Solve</span>
+                          <div className="flex gap-1 flex-shrink-0">
+                            <span className="bg-muted px-1.5 py-0.5 rounded text-xs leading-none">
+                              {COMMAND_KEY}
+                            </span>
+                            <span className="bg-muted px-1.5 py-0.5 rounded text-xs leading-none">
+                              {EnterIcon}
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-xs leading-relaxed text-muted-foreground truncate mt-1">
+                          {(extraScreenshots?.length || 0) >= 2
+                            ? "Generate a solution based on the current problem."
+                            : "Take a screenshot first to enable debugging."}
+                        </p>
+                      </div>
 
                       <div className="rounded px-2 py-1.5 transition-colors select-none">
                         <div className="flex items-center justify-between">
-                          <span className="truncate">Start Over</span>
+                          <span className="truncate">Reset</span>
                           <div className="flex gap-1 flex-shrink-0">
                             <span className="bg-muted px-1.5 py-0.5 rounded text-xs leading-none">
                               {COMMAND_KEY}
@@ -344,7 +355,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
                           </div>
                         </div>
                         <p className="text-xs leading-relaxed text-muted-foreground truncate mt-1">
-                          Start fresh with a new question.
+                          Reset all screenshots and start over.
                         </p>
                       </div>
                     </div>
@@ -360,7 +371,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
                       <form onSubmit={handleSubmit} className="space-y-4 px-2">
                         <div>
                           <label
-                            htmlFor="solution-apiKey"
+                            htmlFor="apiKey"
                             className="block text-xs font-medium text-foreground mb-3"
                           >
                             API Key
@@ -368,7 +379,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
                           <Input
                             ref={inputRef}
                             type="password"
-                            id="solution-apiKey"
+                            id="apiKey"
                             value={apiKey}
                             onChange={(e) => setApiKey(e.target.value)}
                             placeholder="Enter API key (e.g., sk-... or AIza...)"
@@ -380,7 +391,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
 
                         <div>
                           <label
-                            htmlFor="solution-model"
+                            htmlFor="model"
                             className="block text-xs font-medium text-foreground mb-3"
                           >
                             AI Model
@@ -397,12 +408,12 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
                               >
                                 <RadioGroupItem
                                   value={model.id}
-                                  id={`solution-model-${model.id}`}
+                                  id={`model-${model.id}`}
                                   className="mt-0.5"
                                 />
                                 <div className="flex-1">
                                   <label
-                                    htmlFor={`solution-model-${model.id}`}
+                                    htmlFor={`model-${model.id}`}
                                     className="text-xs font-medium text-foreground leading-tight"
                                   >
                                     {model.name}

@@ -79,6 +79,11 @@ interface ElectronAPI {
   // Electron Store
   getStoreValue: (key: string) => Promise<any>;
   setStoreValue: (key: string, value: any) => Promise<void>;
+  setIgnoreMouseEvents: () => Promise<{ success: boolean; error?: string }>;
+  setInteractiveMouseEvents: () => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
 }
 
 declare global {

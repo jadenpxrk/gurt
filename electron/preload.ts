@@ -63,6 +63,11 @@ interface ElectronAPI {
   }>;
   onApiKeyUpdated: (callback: () => void) => () => void;
   onApiKeyMissing: (callback: () => void) => () => void;
+  setIgnoreMouseEvents: () => Promise<{ success: boolean; error?: string }>;
+  setInteractiveMouseEvents: () => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
 }
 
 export const PROCESSING_EVENTS = {
@@ -242,6 +247,9 @@ const electronAPI = {
     ipcRenderer.on("api-key-missing", subscription);
     return () => ipcRenderer.removeListener("api-key-missing", subscription);
   },
+  setIgnoreMouseEvents: () => ipcRenderer.invoke("set-ignore-mouse-events"),
+  setInteractiveMouseEvents: () =>
+    ipcRenderer.invoke("set-interactive-mouse-events"),
 } as ElectronAPI;
 
 // Before exposing the API

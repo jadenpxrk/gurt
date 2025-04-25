@@ -68,16 +68,28 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   const [isTooltipVisible, setIsTooltipVisible] = useState(false);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const { showToast } = useToast();
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const hideTimeoutRef = useRef<NodeJS.Timeout>();
   const [apiKey, setApiKey] = useState("");
   const [selectedModel, setSelectedModel] = useState(
     () => MODEL_OPTIONS.find((model) => model.default)?.id || "o3"
   );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null); // Keep for potential focus needs
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Load current API key and model when the component mounts (or tooltip opens if preferred)
+  useEffect(() => {
+    return () => {
+      window.electronAPI
+        .setIgnoreMouseEvents()
+        .catch((err: unknown) =>
+          console.warn("Failed to set ignore mouse events on unmount:", err)
+        );
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const loadCurrentConfig = async () => {
       try {
@@ -92,16 +104,16 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
         }
       } catch (error) {
         console.error("Error loading current API configuration:", error);
-        setError("Failed to load configuration"); // Inform user
+        setError("Failed to load configuration");
       }
     };
 
     loadCurrentConfig();
-  }, []); // Load once on mount
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    e.stopPropagation(); // Prevent tooltip closure if inside form
+    e.stopPropagation();
 
     if (!apiKey.trim()) {
       setError("API key cannot be empty");
@@ -119,7 +131,8 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
 
       if (result.success) {
         showToast("API configuration saved successfully.", "", "success");
-        setIsTooltipVisible(false); // Close tooltip on successful save
+        setIsTooltipVisible(false);
+        window.electronAPI.setIgnoreMouseEvents();
       } else {
         setError(result.error || "Failed to save configuration");
       }
@@ -131,12 +144,9 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
     }
   };
 
-  // Effect to clear error when tooltip closes
   useEffect(() => {
     if (!isTooltipVisible) {
       setError(null);
-      // Optionally reset apiKey input if desired when tooltip closes without saving
-      // loadCurrentConfig(); // Or reload config to discard changes
     }
   }, [isTooltipVisible]);
 
@@ -146,53 +156,38 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
       tooltipHeight = tooltipRef.current.offsetHeight + 10;
     }
     onTooltipVisibilityChange(isTooltipVisible, tooltipHeight);
-  }, [isTooltipVisible]);
+  }, [isTooltipVisible, onTooltipVisibilityChange]);
 
-  const handleMouseEnter = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
+  const handleTriggerMouseEnter = () => {
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
     }
     setIsTooltipVisible(true);
   };
 
-  const handleMouseLeave = (e: React.MouseEvent) => {
-    const relatedTarget = e.relatedTarget as HTMLElement;
-    if (
-      relatedTarget?.closest('[role="listbox"]') ||
-      relatedTarget?.closest("[data-radix-select-viewport]") ||
-      relatedTarget?.closest("[data-radix-select-content]")
-    ) {
-      return;
-    }
-
-    // Don't close if hovering over the tooltip content, including select dropdowns
-    if (
-      tooltipRef.current?.contains(relatedTarget) ||
-      relatedTarget?.closest('[role="listbox"]') ||
-      relatedTarget?.closest("[data-radix-select-viewport]") ||
-      relatedTarget?.closest("[data-radix-select-content]")
-    ) {
-      return;
-    }
-
-    timeoutRef.current = setTimeout(() => {
+  const handleTriggerMouseLeave = () => {
+    hideTimeoutRef.current = setTimeout(() => {
       setIsTooltipVisible(false);
+      window.electronAPI.setIgnoreMouseEvents();
     }, 100);
   };
 
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
+  const handleTooltipContentMouseEnter = () => {
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+    }
+    window.electronAPI.setInteractiveMouseEvents();
+  };
+
+  const handleTooltipContentMouseLeave = () => {
+    window.electronAPI.setIgnoreMouseEvents();
+    setIsTooltipVisible(false);
+  };
 
   return (
     <div className="select-none">
       <div className="pt-2 w-fit">
         <div className="text-xs text-foreground backdrop-blur-md bg-background/80 rounded-lg py-2 px-4 flex items-center justify-center gap-4 pointer-events-none">
-          {/* Screenshot */}
           <div className="flex items-center gap-2 rounded px-2 py-1.5 transition-colors pointer-events-none select-none">
             <span className="text-xs leading-none truncate">
               {screenshotCount === 0
@@ -214,7 +209,6 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
             </div>
           </div>
 
-          {/* Solve Command */}
           {screenshotCount > 0 && (
             <div className="flex flex-col rounded px-2 py-1.5 transition-colors pointer-events-none select-none">
               <div className="flex items-center justify-between">
@@ -231,37 +225,31 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
             </div>
           )}
 
-          {/* Separator */}
           <div className="mx-2 h-4 w-px bg-border" />
 
-          {/* Settings with Tooltip */}
           <div
             className="relative inline-block pointer-events-auto"
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
+            onMouseEnter={handleTriggerMouseEnter}
+            onMouseLeave={handleTriggerMouseLeave}
           >
             <div className="w-4 h-4 flex items-center justify-center cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
               <Settings size={16} />
             </div>
 
-            {/* Tooltip Content */}
             {isTooltipVisible && (
               <div
                 ref={tooltipRef}
-                className="absolute top-full left-0 mt-4 w-80 transform -translate-x-[calc(50%-12px)] z-[100] pointer-events-auto"
-                onMouseEnter={handleMouseEnter}
-                onMouseLeave={handleMouseLeave}
+                className="absolute top-full left-0 mt-4 w-[310px] transform -translate-x-[calc(100%-32px)] z-[100] pointer-events-auto"
+                onMouseEnter={handleTooltipContentMouseEnter}
+                onMouseLeave={handleTooltipContentMouseLeave}
                 onClick={(e) => e.stopPropagation()}
               >
-                {/* Add transparent bridge */}
-                <div className="absolute -top-2 right-0 w-full h-2" />
-                <div className="p-3 text-xs bg-background/80 backdrop-blur-md rounded-lg border border-border text-foreground shadow-lg">
+                <div className="mt-2 p-3 text-xs bg-background/80 backdrop-blur-md rounded-lg text-foreground shadow-lg">
                   <div className="space-y-4">
                     <h3 className="font-medium truncate select-none">
                       Keyboard Shortcuts
                     </h3>
                     <div className="space-y-3">
-                      {/* Toggle Command */}
                       <div className="rounded px-2 py-1.5 transition-colors select-none">
                         <div className="flex items-center justify-between">
                           <span className="truncate">Toggle Window</span>
@@ -270,10 +258,10 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                               {COMMAND_KEY}
                             </span>
                             <span className="bg-muted px-1.5 py-0.5 rounded text-xs leading-none">
-                              ⇧
+                              {UpArrowIcon}
                             </span>
                             <span className="bg-muted px-1.5 py-0.5 rounded text-xs leading-none">
-                              \
+                              {BackslashIcon}
                             </span>
                           </div>
                         </div>
@@ -282,7 +270,6 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                         </p>
                       </div>
 
-                      {/* Screenshot Command */}
                       <div className="rounded px-2 py-1.5 transition-colors select-none">
                         <div className="flex items-center justify-between">
                           <span className="truncate">Take Screenshot</span>
@@ -303,7 +290,6 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                         </p>
                       </div>
 
-                      {/* Solve Command */}
                       <div
                         className={`rounded px-2 py-1.5 transition-colors select-none ${
                           screenshotCount === 0 ? "opacity-50" : ""
@@ -327,7 +313,6 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                         </p>
                       </div>
 
-                      {/* Reset Command */}
                       <div className="rounded px-2 py-1.5 transition-colors select-none">
                         <div className="flex items-center justify-between">
                           <span className="truncate">Reset</span>
@@ -345,7 +330,6 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                         </p>
                       </div>
 
-                      {/* API Configuration Form */}
                       <div className="border-t border-border pt-3 mt-3">
                         <h3 className="font-medium truncate px-2 mb-3 select-none">
                           API Configuration
@@ -385,11 +369,10 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                             >
                               AI Model
                             </label>
-                            {/* Make RadioGroup scrollable if needed */}
                             <RadioGroup
                               value={selectedModel}
                               onValueChange={setSelectedModel}
-                              className="max-h-32 overflow-y-auto pr-1 space-y-2" // Limit height and add scroll
+                              className="max-h-32 overflow-y-auto pr-1 space-y-2"
                             >
                               {MODEL_OPTIONS.map((model) => (
                                 <div
@@ -428,7 +411,6 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                             </div>
                           )}
 
-                          {/* Remove Cancel button for simplicity or add specific logic */}
                           <div className="flex justify-end pt-1">
                             <Button
                               type="submit"
@@ -449,7 +431,6 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                         </form>
                       </div>
 
-                      {/* Language Selector */}
                       <div className="border-t border-border pt-3 mt-3">
                         <h3 className="font-medium truncate px-2 mb-2 select-none">
                           Programming Language

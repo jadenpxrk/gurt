@@ -51,6 +51,11 @@ export interface ElectronAPI {
   getPlatform: () => string;
   getLanguage: () => Promise<string>;
   setLanguage: (language: string) => Promise<void>;
+  setIgnoreMouseEvents: () => Promise<{ success: boolean; error?: string }>;
+  setInteractiveMouseEvents: () => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
 }
 
 declare global {

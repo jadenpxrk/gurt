@@ -8,8 +8,7 @@ import { ProblemStatementData } from "../types/solutions";
 import ReactMarkdown from "react-markdown";
 import ScreenshotQueue from "../components/Queue/ScreenshotQueue";
 import SolutionCommands from "../components/Solutions/SolutionCommands";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism";
+import rehypePrism from "rehype-prism-plus";
 import remarkGfm from "remark-gfm";
 import { useToast } from "../contexts/toast";
 
@@ -23,17 +22,17 @@ export const ContentSection = ({
   isLoading: boolean;
 }) => (
   <div className="space-y-2">
-    <h2 className="text-sm font-medium text-white tracking-wide">{title}</h2>
+    <h2 className="text-sm font-medium text-foreground tracking-wide">
+      {title}
+    </h2>
     {isLoading ? (
       <div className="mt-4 flex">
-        <p className="text-xs bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 bg-clip-text text-transparent animate-pulse">
+        <p className="text-xs text-muted-foreground animate-pulse">
           Extracting problem statement...
         </p>
       </div>
     ) : (
-      <div className="text-sm leading-[1.4] text-gray-100 max-w-[600px]">
-        {content}
-      </div>
+      <div className="text-sm text-foreground w-full">{content}</div>
     )}
   </div>
 );
@@ -42,67 +41,64 @@ export const ContentSection = ({
 const MarkdownRenderer = ({ content }: { content: string }) => (
   <ReactMarkdown
     remarkPlugins={[remarkGfm]}
-    className="markdown-content"
+    rehypePlugins={[rehypePrism]}
     components={{
-      code({ node, inline, className, children, ...props }) {
+      h1: ({ node, ...props }) => (
+        <h1 className="text-lg font-bold mt-4 mb-2" {...props} />
+      ),
+      h2: ({ node, ...props }) => (
+        <h2 className="text-md font-bold mt-3 mb-2" {...props} />
+      ),
+      h3: ({ node, ...props }) => (
+        <h3 className="text-sm font-bold mt-2 mb-1" {...props} />
+      ),
+      p: ({ node, ...props }) => <p className="mb-2" {...props} />,
+      ul: ({ node, ...props }) => (
+        <ul className="list-disc ml-4 mb-2" {...props} />
+      ),
+      ol: ({ node, ...props }) => (
+        <ol className="list-decimal ml-4 mb-2" {...props} />
+      ),
+      li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+      table: ({ node, ...props }) => (
+        <div className="overflow-x-auto my-2">
+          <table className="min-w-full border" {...props} />
+        </div>
+      ),
+      thead: ({ node, ...props }) => <thead className="bg-muted" {...props} />,
+      tbody: ({ node, ...props }) => <tbody {...props} />,
+      tr: ({ node, ...props }) => <tr className="border-b" {...props} />,
+      th: ({ node, ...props }) => (
+        <th className="px-4 py-2 text-left text-foreground" {...props} />
+      ),
+      td: ({ node, ...props }) => (
+        <td className="px-4 py-2 border-r last:border-r-0" {...props} />
+      ),
+      pre: ({ node, ...props }) => (
+        <pre
+          className="my-2 overflow-x-auto rounded border p-3 text-muted-foreground"
+          {...props}
+        />
+      ),
+      code: ({ node, className, children, ...props }) => {
         const match = /language-(\w+)/.exec(className || "");
-        return !inline && match ? (
-          <SyntaxHighlighter
-            style={dracula}
-            language={match[1]}
-            PreTag="div"
-            customStyle={{
-              margin: "1em 0",
-              borderRadius: "4px",
-              backgroundColor: "rgba(22, 27, 34, 0.5)",
+        return match ? (
+          <code className={className} {...props}>
+            {children}
+          </code>
+        ) : (
+          <code
+            className="relative rounded px-[0.3rem] py-[0.2rem] font-mono text-sm"
+            style={{
+              backgroundColor: "hsl(var(--background) / 0.8)",
+              color: "hsl(var(--muted-foreground))",
             }}
             {...props}
           >
-            {String(children).replace(/\n$/, "")}
-          </SyntaxHighlighter>
-        ) : (
-          <code className={className} {...props}>
             {children}
           </code>
         );
       },
-      h1: ({ children }) => (
-        <h1 className="text-lg font-bold mt-4 mb-2">{children}</h1>
-      ),
-      h2: ({ children }) => (
-        <h2 className="text-md font-bold mt-3 mb-2">{children}</h2>
-      ),
-      h3: ({ children }) => (
-        <h3 className="text-sm font-bold mt-2 mb-1">{children}</h3>
-      ),
-      p: ({ children }) => <p className="mb-2">{children}</p>,
-      ul: ({ children }) => <ul className="list-disc ml-4 mb-2">{children}</ul>,
-      ol: ({ children }) => (
-        <ol className="list-decimal ml-4 mb-2">{children}</ol>
-      ),
-      li: ({ children }) => <li className="mb-1">{children}</li>,
-      table: ({ children }) => (
-        <div className="overflow-x-auto my-2">
-          <table className="min-w-full border border-gray-700">
-            {children}
-          </table>
-        </div>
-      ),
-      thead: ({ children }) => (
-        <thead className="bg-gray-800">{children}</thead>
-      ),
-      tbody: ({ children }) => <tbody>{children}</tbody>,
-      tr: ({ children }) => (
-        <tr className="border-b border-gray-700">{children}</tr>
-      ),
-      th: ({ children }) => (
-        <th className="px-4 py-2 text-left text-white">{children}</th>
-      ),
-      td: ({ children }) => (
-        <td className="px-4 py-2 border-r border-gray-700 last:border-r-0">
-          {children}
-        </td>
-      ),
     }}
   >
     {content}
@@ -121,33 +117,33 @@ const SolutionSection = ({
   currentLanguage: string;
 }) => (
   <div className="space-y-2">
-    <h2 className="text-sm font-medium text-white tracking-wide">{title}</h2>
+    <h2 className="text-sm font-medium text-foreground tracking-wide">
+      {title}
+    </h2>
     {isLoading ? (
       <div className="space-y-1.5">
         <div className="mt-4 flex">
-          <p className="text-xs bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 bg-clip-text text-transparent animate-pulse">
+          <p className="text-xs text-muted-foreground animate-pulse">
             Loading solutions...
           </p>
         </div>
       </div>
     ) : (
       <div className="w-full">
-        <SyntaxHighlighter
-          showLineNumbers
-          language={currentLanguage == "golang" ? "go" : currentLanguage}
-          style={dracula}
-          customStyle={{
-            maxWidth: "100%",
-            margin: 0,
-            padding: "1rem",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-all",
-            backgroundColor: "rgba(22, 27, 34, 0.5)",
+        <pre
+          className="p-4 rounded text-sm whitespace-pre-wrap break-all overflow-x-auto border"
+          style={{
+            color: "hsl(var(--muted-foreground))",
           }}
-          wrapLongLines={true}
         >
-          {content as string}
-        </SyntaxHighlighter>
+          <code
+            className={`language-${
+              currentLanguage == "golang" ? "go" : currentLanguage
+            }`}
+          >
+            {content}
+          </code>
+        </pre>
       </div>
     )}
   </div>
@@ -163,21 +159,23 @@ export const ComplexitySection = ({
   isLoading: boolean;
 }) => (
   <div className="space-y-2">
-    <h2 className="text-sm font-medium text-white tracking-wide">Complexity</h2>
+    <h2 className="text-sm font-medium text-foreground tracking-wide">
+      Complexity
+    </h2>
     {isLoading ? (
-      <p className="text-xs bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 bg-clip-text text-transparent animate-pulse">
+      <p className="text-xs text-muted-foreground animate-pulse">
         Calculating complexity...
       </p>
     ) : (
       <div className="space-y-1">
-        <div className="flex items-start gap-2 text-sm leading-[1.4] text-gray-100">
-          <div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0" />
+        <div className="flex items-start gap-2 text-sm text-foreground">
+          <div className="w-1 h-1 rounded-full bg-primary mt-2 shrink-0" />
           <div>
             <strong>Time:</strong> {timeComplexity}
           </div>
         </div>
-        <div className="flex items-start gap-2 text-sm leading-[1.4] text-gray-100">
-          <div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0" />
+        <div className="flex items-start gap-2 text-sm text-foreground">
+          <div className="w-1 h-1 rounded-full bg-primary mt-2 shrink-0" />
           <div>
             <strong>Space:</strong> {spaceComplexity}
           </div>
@@ -198,6 +196,7 @@ const Solutions: React.FC<SolutionsProps> = ({
   setLanguage,
 }) => {
   const queryClient = useQueryClient();
+  const [showDebugView, setShowDebugView] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const [debugProcessing, setDebugProcessing] = useState(false);
@@ -308,6 +307,9 @@ const Solutions: React.FC<SolutionsProps> = ({
         // Reset screenshots
         setExtraScreenshots([]);
 
+        // Reset debug view flag
+        setShowDebugView(false);
+
         // After a small delay, clear the resetting state
         setTimeout(() => {
           setIsResetting(false);
@@ -381,27 +383,10 @@ const Solutions: React.FC<SolutionsProps> = ({
         };
         fetchScreenshots();
       }),
-
-      //########################################################
-      //DEBUG EVENTS
-      //########################################################
-      window.electronAPI.onDebugStart(() => {
-        //we'll set the debug processing state to true and use that to render a little loader
-        setDebugProcessing(true);
-      }),
-      //the first time debugging works, we'll set the view to debug and populate the cache with the data
+      // Listener to trigger showing the Debug view
       window.electronAPI.onDebugSuccess((data) => {
-        queryClient.setQueryData(["new_solution"], data);
-        setDebugProcessing(false);
-      }),
-      //when there was an error in the initial debugging, we'll show a toast and stop the little generating pulsing thing.
-      window.electronAPI.onDebugError(() => {
-        showToast(
-          "Processing Failed",
-          "There was an error debugging your code.",
-          "error"
-        );
-        setDebugProcessing(false);
+        // We don't need the data here, just the event to trigger the view switch
+        setShowDebugView(true);
       }),
       window.electronAPI.onProcessingNoScreenshots(() => {
         showToast(
@@ -484,7 +469,7 @@ const Solutions: React.FC<SolutionsProps> = ({
 
   return (
     <>
-      {!isResetting && queryClient.getQueryData(["new_solution"]) ? (
+      {!isResetting && showDebugView ? (
         <Debug
           isProcessing={debugProcessing}
           setIsProcessing={setDebugProcessing}
@@ -509,16 +494,18 @@ const Solutions: React.FC<SolutionsProps> = ({
           )}
 
           {/* Navbar of commands with the SolutionsHelper */}
-          <SolutionCommands
-            onTooltipVisibilityChange={handleTooltipVisibilityChange}
-            isProcessing={!problemStatementData || !solutionData}
-            extraScreenshots={extraScreenshots}
-            currentLanguage={currentLanguage}
-            setLanguage={setLanguage}
-          />
+          <div className="relative z-10">
+            <SolutionCommands
+              onTooltipVisibilityChange={handleTooltipVisibilityChange}
+              isProcessing={!problemStatementData || !solutionData}
+              extraScreenshots={extraScreenshots}
+              currentLanguage={currentLanguage}
+              setLanguage={setLanguage}
+            />
+          </div>
 
           {/* Main Content - Modified width constraints */}
-          <div className="w-full text-sm text-black bg-black/60 rounded-md">
+          <div className="w-full text-sm text-foreground rounded-md select-none bg-background/80 backdrop-blur-md">
             <div className="rounded-lg overflow-hidden">
               <div className="px-4 py-3 space-y-4 max-w-full">
                 {!solutionData && (
@@ -536,7 +523,7 @@ const Solutions: React.FC<SolutionsProps> = ({
                     />
                     {problemStatementData && (
                       <div className="mt-4 flex">
-                        <p className="text-xs bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 bg-clip-text text-transparent animate-pulse">
+                        <p className="text-xs text-muted-foreground animate-pulse">
                           Generating solutions...
                         </p>
                       </div>
@@ -554,9 +541,9 @@ const Solutions: React.FC<SolutionsProps> = ({
                             {thoughtsData.map((thought, index) => (
                               <div
                                 key={index}
-                                className="rounded bg-black/30 p-3"
+                                className="text-muted-foreground"
                               >
-                                <MarkdownRenderer content={thought} />
+                                {thought}
                               </div>
                             ))}
                           </div>
