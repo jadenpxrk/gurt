@@ -142,11 +142,10 @@ const electronAPI = {
     };
   },
   onDebugSuccess: (callback: (data: any) => void) => {
-    ipcRenderer.on("debug-success", (_event, data) => callback(data));
+    const subscription = (_: any, data: any) => callback(data);
+    ipcRenderer.on(PROCESSING_EVENTS.DEBUG_SUCCESS, subscription);
     return () => {
-      ipcRenderer.removeListener("debug-success", (_event, data) =>
-        callback(data)
-      );
+      ipcRenderer.removeListener(PROCESSING_EVENTS.DEBUG_SUCCESS, subscription);
     };
   },
   onDebugError: (callback: (error: string) => void) => {

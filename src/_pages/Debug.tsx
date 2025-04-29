@@ -7,6 +7,14 @@ import ScreenshotQueue from "../components/Queue/ScreenshotQueue";
 import SolutionCommands from "../components/Solutions/SolutionCommands";
 import { useToast } from "../contexts/toast";
 
+// Add interface at the top of the file
+interface DebugSolutionData {
+  code: string;
+  thoughts: string[];
+  time_complexity: string;
+  space_complexity: string;
+}
+
 const CodeSection = ({
   title,
   code,
@@ -19,18 +27,19 @@ const CodeSection = ({
   currentLanguage: string;
 }) => (
   <div className="space-y-2">
-    <h2 className="text-[13px] font-medium text-foreground tracking-wide"></h2>
+    <h2 className="text-sm font-medium text-foreground tracking-wide">
+      {title}
+    </h2>
     {isLoading ? (
       <div className="space-y-1.5">
         <div className="mt-4 flex">
           <p className="text-xs text-muted-foreground animate-pulse">
-            Loading solutions...
+            Loading solution...
           </p>
         </div>
       </div>
     ) : (
       <div className="w-full">
-        {/* Use Shadcn variables for Debug code block styling */}
         <pre
           className="p-4 rounded text-sm whitespace-pre-wrap break-all overflow-x-auto border"
           style={{
@@ -39,7 +48,7 @@ const CodeSection = ({
         >
           <code
             className={`language-${
-              currentLanguage == "golang" ? "go" : currentLanguage
+              currentLanguage === "golang" ? "go" : currentLanguage
             }`}
           >
             {code}
@@ -55,10 +64,8 @@ async function fetchScreenshots(): Promise<Screenshot[]> {
     const existing = await window.electronAPI.getScreenshots();
     console.log("Raw screenshot data in Debug:", existing);
     return (Array.isArray(existing) ? existing : []).map((p) => ({
-      id: p.path,
       path: p.path,
       preview: p.preview,
-      timestamp: Date.now(),
     }));
   } catch (error) {
     console.error("Error loading screenshots:", error);
@@ -82,6 +89,25 @@ const Debug: React.FC<DebugProps> = ({
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [tooltipHeight, setTooltipHeight] = useState(0);
   const { showToast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Get cached debug data with proper typing
+  const cachedDebugData = queryClient.getQueryData<DebugSolutionData>([
+    "debug_solution",
+  ]);
+
+  const [newCode, setNewCode] = useState<string | null>(
+    cachedDebugData?.code || null
+  );
+  const [thoughtsData, setThoughtsData] = useState<string[] | null>(
+    cachedDebugData?.thoughts || null
+  );
+  const [timeComplexityData, setTimeComplexityData] = useState<string | null>(
+    cachedDebugData?.time_complexity || null
+  );
+  const [spaceComplexityData, setSpaceComplexityData] = useState<string | null>(
+    cachedDebugData?.space_complexity || null
+  );
 
   const { data: screenshots = [], refetch } = useQuery<Screenshot[]>({
     queryKey: ["screenshots"],
@@ -91,199 +117,157 @@ const Debug: React.FC<DebugProps> = ({
     refetchOnWindowFocus: false,
   });
 
-  const [newCode, setNewCode] = useState<string | null>(null);
-  const [thoughtsData, setThoughtsData] = useState<string[] | null>(null);
-  const [timeComplexityData, setTimeComplexityData] = useState<string | null>(
-    null
-  );
-  const [spaceComplexityData, setSpaceComplexityData] = useState<string | null>(
-    null
-  );
-
-  const queryClient = useQueryClient();
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // Log state on each render
-  console.log(
-    "[Debug Render] isProcessing:",
-    isProcessing,
-    "newCode:",
-    !!newCode,
-    "thoughtsData:",
-    !!thoughtsData
-  );
-
-  // Set window non-interactive when Debug view mounts
+  // Add debug logging effect
   useEffect(() => {
-    console.log("Debug view mounted, making window non-interactive initially.");
-    window.electronAPI.setIgnoreMouseEvents();
-
-    // Cleanup function: Make window interactive again when component unmounts
-    return () => {
-      console.log("Debug view unmounting, making window interactive.");
-      window.electronAPI.setInteractiveMouseEvents();
-    };
-  }, []);
-
-  useEffect(() => {
-    // Initial load from cache (if available on component mount)
-    const initialNewSolution = queryClient.getQueryData(["new_solution"]) as {
-      new_code: string;
-      thoughts: string[];
-      time_complexity: string;
-      space_complexity: string;
-    } | null;
-
-    if (initialNewSolution) {
-      setNewCode(initialNewSolution.new_code || null);
-      setThoughtsData(initialNewSolution.thoughts || null);
-      setTimeComplexityData(initialNewSolution.time_complexity || null);
-      setSpaceComplexityData(initialNewSolution.space_complexity || null);
-      setIsProcessing(false);
-    }
-
-    // Subscribe to cache changes for new_solution
-    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
-      if (
-        event?.type === "updated" &&
-        event.query.queryKey[0] === "new_solution" &&
-        event.query.state.status === "success" // Ensure data is successfully fetched/updated
-      ) {
-        // State updates are now handled directly in onDebugSuccess
-        // const newSolutionData = event.query.state.data as {
-        //   new_code: string;
-        //   thoughts: string[];
-        //   time_complexity: string;
-        //   space_complexity: string;
-        // } | null;
-        //
-        // if (newSolutionData) {
-        //   setNewCode(newSolutionData.new_code || null);
-        //   setThoughtsData(newSolutionData.thoughts || null);
-        //   setTimeComplexityData(newSolutionData.time_complexity || null);
-        //   setSpaceComplexityData(newSolutionData.space_complexity || null);
-        //   setIsProcessing(false); // This was moved to onDebugSuccess
-        // }
-      }
+    console.log("[Debug State] Current state:", {
+      isProcessing,
+      hasCode: !!newCode,
+      hasThoughts: !!thoughtsData,
+      hasTimeComplexity: !!timeComplexityData,
+      hasSpaceComplexity: !!spaceComplexityData,
+      cachedDebugData: !!cachedDebugData,
     });
+  }, [
+    isProcessing,
+    newCode,
+    thoughtsData,
+    timeComplexityData,
+    spaceComplexityData,
+    cachedDebugData,
+  ]);
+
+  useEffect(() => {
+    console.log("[Debug] Setting up event listeners");
 
     const cleanupFunctions = [
-      // Listeners specific to the Debug view
-      window.electronAPI.onScreenshotTaken(() => refetch()),
-      window.electronAPI.onResetView(() => refetch()),
+      window.electronAPI.onScreenshotTaken(() => {
+        console.log("[Debug] Screenshot taken");
+        refetch();
+      }),
+      window.electronAPI.onResetView(() => {
+        console.log("[Debug] Reset view");
+        refetch();
+      }),
       window.electronAPI.onDebugStart(() => {
+        console.log("[Debug] Starting debug process");
         setIsProcessing(true);
-        // Clear previous debug data on new start
+
+        // Clear previous debug data
         setNewCode(null);
         setThoughtsData(null);
         setTimeComplexityData(null);
         setSpaceComplexityData(null);
-        // Also clear the cache for the new solution when starting
         queryClient.setQueryData(["new_solution"], null);
       }),
       window.electronAPI.onDebugSuccess((data) => {
-        console.log("[Debug Success] Event received. Data:", data);
-        // Update the cache
-        queryClient.setQueryData(["new_solution"], data);
+        console.log("[Debug] Success received with data:", {
+          hasCode: !!data?.code,
+          hasThoughts: !!data?.thoughts,
+          hasTimeComplexity: !!data?.time_complexity,
+          hasSpaceComplexity: !!data?.space_complexity,
+          rawData: data,
+        });
 
-        // Directly update component state
-        console.log("[Debug Success] Setting newCode...");
-        setNewCode(data.new_code || null);
-        console.log("[Debug Success] Setting thoughtsData...");
-        setThoughtsData(data.thoughts || null);
-        console.log("[Debug Success] Setting timeComplexityData...");
-        setTimeComplexityData(data.time_complexity || null);
-        console.log("[Debug Success] Setting spaceComplexityData...");
-        setSpaceComplexityData(data.space_complexity || null);
+        if (!data) {
+          console.error("[Debug] Received empty data in onDebugSuccess");
+          showToast("Error", "Received invalid debug data", "error");
+          setIsProcessing(false);
+          return;
+        }
 
-        // Stop loading immediately
-        console.log("[Debug Success] Setting isProcessing to false...");
-        setIsProcessing(false);
-        console.log("[Debug Success] State updates complete.");
+        try {
+          // Update state directly with proper type checking
+          setNewCode(data.code || null);
+          setThoughtsData(Array.isArray(data.thoughts) ? data.thoughts : null);
+          setTimeComplexityData(
+            typeof data.time_complexity === "string"
+              ? data.time_complexity
+              : null
+          );
+          setSpaceComplexityData(
+            typeof data.space_complexity === "string"
+              ? data.space_complexity
+              : null
+          );
+
+          // Update cache with the processed data
+          queryClient.setQueryData(["new_solution"], {
+            code: data.code,
+            thoughts: data.thoughts,
+            time_complexity: data.time_complexity,
+            space_complexity: data.space_complexity,
+          });
+
+          console.log("[Debug] State updates completed with:", {
+            code: data.code,
+            thoughts: data.thoughts,
+            timeComplexity: data.time_complexity,
+            spaceComplexity: data.space_complexity,
+          });
+
+          setIsProcessing(false);
+        } catch (error) {
+          console.error("[Debug] Error updating state:", error);
+          showToast("Error", "Failed to update debug data", "error");
+          setIsProcessing(false);
+        }
       }),
       window.electronAPI.onDebugError((error: string) => {
+        console.error("[Debug] Error:", error);
         showToast(
           "Processing Failed",
           "There was an error debugging your code.",
           "error"
         );
-        // Ensure loading stops on error
         setIsProcessing(false);
-        console.error("Processing error:", error);
       }),
-      unsubscribe, // Add unsubscribe to cleanup
     ];
 
-    // Set up resize observer
-    const updateDimensions = () => {
-      if (contentRef.current) {
-        let contentHeight = contentRef.current.scrollHeight;
-        const contentWidth = contentRef.current.scrollWidth;
-        if (tooltipVisible) {
-          contentHeight += tooltipHeight;
-        }
-        window.electronAPI.updateContentDimensions({
-          width: contentWidth,
-          height: contentHeight,
-        });
-      }
-    };
-
-    const resizeObserver = new ResizeObserver(updateDimensions);
-    if (contentRef.current) {
-      resizeObserver.observe(contentRef.current);
-    }
-    updateDimensions();
-
     return () => {
-      resizeObserver.disconnect();
+      console.log("[Debug] Cleaning up event listeners");
       cleanupFunctions.forEach((cleanup) => cleanup());
     };
-  }, [queryClient, setIsProcessing, refetch]);
+  }, [queryClient, refetch, setIsProcessing, showToast]);
 
-  const handleTooltipVisibilityChange = (visible: boolean, height: number) => {
-    setTooltipVisible(visible);
-    setTooltipHeight(height);
-  };
-
-  const handleDeleteExtraScreenshot = async (index: number) => {
+  const handleDeleteScreenshot = async (index: number) => {
     const screenshotToDelete = screenshots[index];
-
     try {
       const response = await window.electronAPI.deleteScreenshot(
         screenshotToDelete.path
       );
-
       if (response.success) {
         refetch();
       } else {
-        console.error("Failed to delete extra screenshot:", response.error);
+        console.error("Failed to delete screenshot:", response.error);
       }
     } catch (error) {
-      console.error("Error deleting extra screenshot:", error);
+      console.error("Error deleting screenshot:", error);
     }
   };
 
   return (
     <div ref={contentRef} className="relative space-y-3 px-4 py-3">
-      {/* Conditionally render the screenshot queue */}
       <div className="bg-transparent w-fit">
         <div className="pb-3">
           <div className="space-y-3 w-fit">
             <ScreenshotQueue
               screenshots={screenshots}
-              onDeleteScreenshot={handleDeleteExtraScreenshot}
+              onDeleteScreenshot={handleDeleteScreenshot}
               isLoading={isProcessing}
             />
           </div>
         </div>
       </div>
 
-      {/* Navbar of commands with the tooltip */}
       <div className="relative z-10">
         <SolutionCommands
           screenshots={screenshots}
-          onTooltipVisibilityChange={handleTooltipVisibilityChange}
+          onTooltipVisibilityChange={(visible, height) => {
+            setTooltipVisible(visible);
+            setTooltipHeight(height);
+          }}
           isProcessing={isProcessing}
           extraScreenshots={screenshots}
           currentLanguage={currentLanguage}
@@ -291,43 +275,39 @@ const Debug: React.FC<DebugProps> = ({
         />
       </div>
 
-      {/* Main Content */}
       <div className="w-full text-sm text-foreground rounded-md select-none bg-background/80 backdrop-blur-md">
         <div className="rounded-lg overflow-hidden">
           <div className="px-4 py-3 space-y-4">
-            {/* Thoughts Section */}
             <ContentSection
               title="What I Changed"
               content={
-                thoughtsData && (
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      {thoughtsData.map((thought, index) => (
-                        <div key={index} className="flex items-start gap-2">
-                          <div className="w-1 h-1 rounded-full bg-primary mt-2 shrink-0" />
-                          <div>{thought}</div>
-                        </div>
-                      ))}
-                    </div>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    {thoughtsData?.map((thought, index) => (
+                      <div key={index} className="flex items-start gap-2">
+                        <div className="w-1 h-1 rounded-full bg-primary mt-2 shrink-0" />
+                        <div className="text-sm text-foreground">{thought}</div>
+                      </div>
+                    ))}
                   </div>
-                )
+                </div>
               }
-              isLoading={!thoughtsData}
+              isLoading={isProcessing || !thoughtsData}
             />
 
-            {/* Code Section */}
             <CodeSection
               title="Solution"
               code={newCode}
-              isLoading={!newCode}
+              isLoading={isProcessing || !newCode}
               currentLanguage={currentLanguage}
             />
 
-            {/* Complexity Section */}
             <ComplexitySection
               timeComplexity={timeComplexityData}
               spaceComplexity={spaceComplexityData}
-              isLoading={!timeComplexityData || !spaceComplexityData}
+              isLoading={
+                isProcessing || (!timeComplexityData && !spaceComplexityData)
+              }
             />
           </div>
         </div>

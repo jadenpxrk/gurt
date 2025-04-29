@@ -385,8 +385,17 @@ const Solutions: React.FC<SolutionsProps> = ({
       }),
       // Listener to trigger showing the Debug view
       window.electronAPI.onDebugSuccess((data) => {
-        // We don't need the data here, just the event to trigger the view switch
+        console.log("[Solutions] Debug success, switching to debug view");
         setShowDebugView(true);
+        setDebugProcessing(false);
+
+        // Store debug data in cache
+        queryClient.setQueryData(["debug_solution"], {
+          code: data.code,
+          thoughts: data.thoughts,
+          time_complexity: data.time_complexity,
+          space_complexity: data.space_complexity,
+        });
       }),
       window.electronAPI.onProcessingNoScreenshots(() => {
         showToast(
