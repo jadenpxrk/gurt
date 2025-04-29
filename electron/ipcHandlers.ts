@@ -353,6 +353,7 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
     const mainWindow = deps.getMainWindow();
     if (mainWindow && !mainWindow.isDestroyed()) {
       try {
+        // Only disable ignore mode, no forward
         mainWindow.setIgnoreMouseEvents(false);
         console.log("[Mouse Events] Set to interactive mode");
         return { success: true };

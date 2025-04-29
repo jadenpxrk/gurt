@@ -344,7 +344,25 @@ function createWindow(): BrowserWindow {
   // Add more detailed logging for window events
   state.mainWindow.webContents.on("did-finish-load", () => {
     console.log("Window finished loading");
+    // Re-enable click-through after load
+    state.mainWindow?.setIgnoreMouseEvents(true, { forward: true });
   });
+
+  state.mainWindow.webContents.on("did-start-loading", () => {
+    // Ensure click-through during loading
+    state.mainWindow?.setIgnoreMouseEvents(true, { forward: true });
+  });
+
+  state.mainWindow.on("show", () => {
+    // Ensure click-through when window is shown
+    state.mainWindow?.setIgnoreMouseEvents(true, { forward: true });
+  });
+
+  state.mainWindow.on("ready-to-show", () => {
+    // Ensure click-through when window is ready
+    state.mainWindow?.setIgnoreMouseEvents(true, { forward: true });
+  });
+
   state.mainWindow.webContents.on(
     "did-fail-load",
     async (event, errorCode, errorDescription) => {

@@ -82,17 +82,11 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
 
   useEffect(() => {
     return () => {
-      window.electronAPI
-        .setInteractiveMouseEvents()
-        .catch((err: unknown) =>
-          console.warn(
-            "Failed to set interactive mouse events on unmount:",
-            err
-          )
-        );
       if (hideTimeoutRef.current) {
         clearTimeout(hideTimeoutRef.current);
       }
+      // Ensure we're in click-through mode when unmounting
+      window.electronAPI.setIgnoreMouseEvents();
     };
   }, []);
 

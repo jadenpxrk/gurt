@@ -30,12 +30,10 @@ const CodeSection = ({
       {title}
     </h2>
     {isLoading ? (
-      <div className="space-y-1.5">
-        <div className="mt-4 flex">
-          <p className="text-xs text-muted-foreground animate-pulse">
-            Loading solution...
-          </p>
-        </div>
+      <div className="mt-4 flex">
+        <p className="text-xs text-muted-foreground animate-pulse">
+          Optimizing solution...
+        </p>
       </div>
     ) : (
       <div className="w-full">
