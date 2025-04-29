@@ -225,30 +225,6 @@ const Solutions: React.FC<SolutionsProps> = ({
 
   const [extraScreenshots, setExtraScreenshots] = useState<Screenshot[]>([]);
 
-  useEffect(() => {
-    const fetchScreenshots = async () => {
-      try {
-        const existing = await window.electronAPI.getScreenshots();
-        console.log("Raw screenshot data:", existing);
-        const screenshots = (Array.isArray(existing) ? existing : []).map(
-          (p) => ({
-            id: p.path,
-            path: p.path,
-            preview: p.preview,
-            timestamp: Date.now(),
-          })
-        );
-        console.log("Processed screenshots:", screenshots);
-        setExtraScreenshots(screenshots);
-      } catch (error) {
-        console.error("Error loading extra screenshots:", error);
-        setExtraScreenshots([]);
-      }
-    };
-
-    fetchScreenshots();
-  }, [solutionData]);
-
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -309,6 +285,7 @@ const Solutions: React.FC<SolutionsProps> = ({
 
         // Reset debug view flag
         setShowDebugView(false);
+        setDebugProcessing(false);
 
         // After a small delay, clear the resetting state
         setTimeout(() => {
@@ -325,7 +302,6 @@ const Solutions: React.FC<SolutionsProps> = ({
       window.electronAPI.onProblemExtracted((data) => {
         queryClient.setQueryData(["problem_statement"], data);
       }),
-      //if there was an error processing the initial solution
       window.electronAPI.onSolutionError((error: string) => {
         showToast("Processing Failed", error, "error");
         // Reset solutions in the cache (even though this shouldn't ever happen) and complexities to previous states
@@ -344,7 +320,6 @@ const Solutions: React.FC<SolutionsProps> = ({
         setSpaceComplexityData(solution?.space_complexity || null);
         console.error("Processing error:", error);
       }),
-      //when the initial solution is generated, we'll set the solution data to that
       window.electronAPI.onSolutionSuccess((data) => {
         if (!data) {
           console.warn("Received empty or invalid solution data");
@@ -383,12 +358,15 @@ const Solutions: React.FC<SolutionsProps> = ({
         };
         fetchScreenshots();
       }),
-      // Listener to trigger showing the Debug view
-      window.electronAPI.onDebugSuccess((data) => {
-        console.log("[Solutions] Debug success, switching to debug view");
+      window.electronAPI.onDebugStart(() => {
+        console.log("[Solutions] Debug process starting");
+        setDebugProcessing(true);
         setShowDebugView(true);
-        setDebugProcessing(false);
-
+        // Clear any existing debug data
+        queryClient.setQueryData(["debug_solution"], null);
+      }),
+      window.electronAPI.onDebugSuccess((data) => {
+        console.log("[Solutions] Debug success received");
         // Store debug data in cache
         queryClient.setQueryData(["debug_solution"], {
           code: data.code,
@@ -396,6 +374,13 @@ const Solutions: React.FC<SolutionsProps> = ({
           time_complexity: data.time_complexity,
           space_complexity: data.space_complexity,
         });
+        setDebugProcessing(false);
+      }),
+      window.electronAPI.onDebugError((error: string) => {
+        console.error("[Solutions] Debug error:", error);
+        showToast("Debug Failed", error, "error");
+        setDebugProcessing(false);
+        setShowDebugView(false);
       }),
       window.electronAPI.onProcessingNoScreenshots(() => {
         showToast(

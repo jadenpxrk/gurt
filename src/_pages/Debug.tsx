@@ -156,7 +156,7 @@ const Debug: React.FC<DebugProps> = ({
         setThoughtsData(null);
         setTimeComplexityData(null);
         setSpaceComplexityData(null);
-        queryClient.setQueryData(["new_solution"], null);
+        queryClient.setQueryData(["debug_solution"], null);
       }),
       window.electronAPI.onDebugSuccess((data) => {
         console.log("[Debug] Success received with data:", {
@@ -190,7 +190,7 @@ const Debug: React.FC<DebugProps> = ({
           );
 
           // Update cache with the processed data
-          queryClient.setQueryData(["new_solution"], {
+          queryClient.setQueryData(["debug_solution"], {
             code: data.code,
             thoughts: data.thoughts,
             time_complexity: data.time_complexity,
