@@ -119,30 +119,54 @@ export async function setStoreValue(key: string, value: any): Promise<boolean> {
 // Constants
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
 
-// Application State
-const state = {
-  // Window management properties
-  mainWindow: null as BrowserWindow | null,
+interface ProcessingEvents {
+  DEBUG_SUCCESS: string;
+  DEBUG_ERROR: string;
+  UNAUTHORIZED: string;
+  NO_SCREENSHOTS: string;
+  API_KEY_INVALID: string;
+  INITIAL_START: string;
+  PROBLEM_EXTRACTED: string;
+  SOLUTION_SUCCESS: string;
+  INITIAL_SOLUTION_ERROR: string;
+  DEBUG_START: string;
+}
+
+interface State {
+  mainWindow: BrowserWindow | null;
+  isWindowVisible: boolean;
+  windowPosition: { x: number; y: number } | null;
+  windowSize: { width: number; height: number } | null;
+  screenWidth: number;
+  screenHeight: number;
+  currentX: number;
+  currentY: number;
+  shortcutsHelper: any;
+  hasDebugged: boolean;
+  PROCESSING_EVENTS: ProcessingEvents;
+  screenshotHelper: any;
+  processingHelper: any;
+  view: "queue" | "solutions" | "debug";
+  problemInfo: any;
+  step: number;
+}
+
+const state: State = {
+  mainWindow: null,
   isWindowVisible: false,
-  windowPosition: null as { x: number; y: number } | null,
-  windowSize: null as { width: number; height: number } | null,
+  windowPosition: null,
+  windowSize: null,
   screenWidth: 0,
   screenHeight: 0,
-  step: 0,
   currentX: 0,
   currentY: 0,
-
-  // Application helpers
-  screenshotHelper: null as ScreenshotHelper | null,
-  shortcutsHelper: null as ShortcutsHelper | null,
-  processingHelper: null as ProcessingHelper | null,
-
-  // View and state management
-  view: "queue" as "queue" | "solutions" | "debug",
-  problemInfo: null as any,
+  shortcutsHelper: null,
   hasDebugged: false,
-
-  // Processing events
+  screenshotHelper: null,
+  processingHelper: null,
+  view: "queue",
+  problemInfo: null,
+  step: 0,
   PROCESSING_EVENTS: {
     UNAUTHORIZED: "processing-unauthorized",
     NO_SCREENSHOTS: "processing-no-screenshots",
@@ -154,7 +178,7 @@ const state = {
     DEBUG_START: "debug-start",
     DEBUG_SUCCESS: "debug-success",
     DEBUG_ERROR: "debug-error",
-  } as const,
+  },
 };
 
 // Add interfaces for helper classes
@@ -200,25 +224,26 @@ export interface IShortcutsHelperDeps {
 
 export interface IIpcHandlerDeps {
   getMainWindow: () => BrowserWindow | null;
-  setWindowDimensions: (width: number, height: number) => void;
   getScreenshotQueue: () => string[];
   getExtraScreenshotQueue: () => string[];
   deleteScreenshot: (
     path: string
   ) => Promise<{ success: boolean; error?: string }>;
-  getImagePreview: (filepath: string) => Promise<string>;
-  processingHelper: ProcessingHelper | null;
-  PROCESSING_EVENTS: typeof state.PROCESSING_EVENTS;
+  getImagePreview: (path: string) => Promise<string>;
+  processingHelper?: ProcessingHelper;
+  setWindowDimensions: (width: number, height: number) => void;
   takeScreenshot: () => Promise<string>;
-  getView: () => "queue" | "solutions" | "debug";
   toggleMainWindow: () => void;
   clearQueues: () => void;
   setView: (view: "queue" | "solutions" | "debug") => void;
-  setHasDebugged: (value: boolean) => void;
   moveWindowLeft: () => void;
   moveWindowRight: () => void;
   moveWindowUp: () => void;
   moveWindowDown: () => void;
+  getView: () => "queue" | "solutions" | "debug";
+  createWindow: () => BrowserWindow;
+  PROCESSING_EVENTS: typeof state.PROCESSING_EVENTS;
+  setHasDebugged: (value: boolean) => void;
 }
 
 // Initialize helpers
@@ -272,11 +297,9 @@ function initializeHelpers() {
 }
 
 // Window management functions
-async function createWindow(): Promise<void> {
+function createWindow(): BrowserWindow {
   if (state.mainWindow) {
-    if (state.mainWindow.isMinimized()) state.mainWindow.restore();
-    state.mainWindow.focus();
-    return;
+    return state.mainWindow;
   }
 
   const primaryDisplay = screen.getPrimaryDisplay();
@@ -288,16 +311,14 @@ async function createWindow(): Promise<void> {
 
   const windowSettings: Electron.BrowserWindowConstructorOptions = {
     height: 600,
-
+    width: 800,
     x: state.currentX,
     y: 50,
     alwaysOnTop: true,
     webPreferences: {
-      nodeIntegration: false,
+      nodeIntegration: true,
       contextIsolation: true,
-      preload: isDev
-        ? path.join(__dirname, "../dist-electron/preload.js")
-        : path.join(__dirname, "preload.js"),
+      preload: path.join(__dirname, "preload.js"),
       scrollBounce: true,
     },
     show: true,
@@ -342,11 +363,11 @@ async function createWindow(): Promise<void> {
 
   // Load the app - always load from built files
   console.log("Loading application from built files...");
-  state.mainWindow
-    ?.loadFile(path.join(__dirname, "../dist/index.html"))
-    .catch((error) => {
-      console.error("Failed to load built files:", error);
-    });
+  if (app.isPackaged) {
+    state.mainWindow.loadFile(path.join(__dirname, "../index.html"));
+  } else {
+    state.mainWindow.loadURL("http://localhost:3000");
+  }
 
   // Configure window behavior
   state.mainWindow.webContents.setZoomFactor(1);
@@ -397,6 +418,8 @@ async function createWindow(): Promise<void> {
   state.currentX = bounds.x;
   state.currentY = bounds.y;
   state.isWindowVisible = true;
+
+  return state.mainWindow;
 }
 
 function handleWindowMove(): void {
@@ -604,20 +627,31 @@ async function initializeApp() {
     await loadEnvVariables();
     initializeHelpers();
     initializeIpcHandlers({
-      getMainWindow,
+      getMainWindow: () => state.mainWindow,
       setWindowDimensions,
-      getScreenshotQueue,
-      getExtraScreenshotQueue,
-      deleteScreenshot,
-      getImagePreview,
+      getScreenshotQueue: () =>
+        state.screenshotHelper?.getScreenshotQueue() || [],
+      getExtraScreenshotQueue: () =>
+        state.screenshotHelper?.getExtraScreenshotQueue() || [],
+      deleteScreenshot: async (path) => {
+        if (!state.screenshotHelper) return { success: false };
+        const result = await state.screenshotHelper.deleteScreenshot(path);
+        return result;
+      },
+      getImagePreview: async (path) => {
+        if (!state.screenshotHelper) return "";
+        const preview = await state.screenshotHelper.getImagePreview(path);
+        return preview;
+      },
       processingHelper: state.processingHelper,
-      PROCESSING_EVENTS: state.PROCESSING_EVENTS,
-      takeScreenshot,
-      getView,
+      takeScreenshot: async () => {
+        if (!state.screenshotHelper) return "";
+        const screenshot = await state.screenshotHelper.takeScreenshot();
+        return screenshot;
+      },
       toggleMainWindow,
-      clearQueues,
-      setView,
-      setHasDebugged,
+      clearQueues: () => state.screenshotHelper?.clearQueues() || {},
+      setView: (view) => state.screenshotHelper?.setView(view) || {},
       moveWindowLeft: () =>
         moveWindowHorizontal((x) =>
           Math.max(-(state.windowSize?.width || 0) / 2, x - state.step)
@@ -631,6 +665,17 @@ async function initializeApp() {
         ),
       moveWindowUp: () => moveWindowVertical((y) => y - state.step),
       moveWindowDown: () => moveWindowVertical((y) => y + state.step),
+      getView: () => state.screenshotHelper?.getView() || "queue",
+      createWindow: () => {
+        if (!state.mainWindow) {
+          return createWindow();
+        }
+        return state.mainWindow;
+      },
+      PROCESSING_EVENTS: state.PROCESSING_EVENTS,
+      setHasDebugged: (value) => {
+        state.hasDebugged = value;
+      },
     });
     await createWindow();
     state.shortcutsHelper?.registerGlobalShortcuts();

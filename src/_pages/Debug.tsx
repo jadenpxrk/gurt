@@ -7,7 +7,6 @@ import ScreenshotQueue from "../components/Queue/ScreenshotQueue";
 import SolutionCommands from "../components/Solutions/SolutionCommands";
 import { useToast } from "../contexts/toast";
 
-// Add interface at the top of the file
 interface DebugSolutionData {
   code: string;
   thoughts: string[];

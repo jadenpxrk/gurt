@@ -167,6 +167,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
       clearTimeout(hideTimeoutRef.current);
     }
     setIsTooltipVisible(true);
+    window.electronAPI.setInteractiveMouseEvents();
   };
 
   const handleTriggerMouseLeave = () => {
@@ -180,12 +181,13 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
     if (hideTimeoutRef.current) {
       clearTimeout(hideTimeoutRef.current);
     }
-    window.electronAPI.setInteractiveMouseEvents();
   };
 
   const handleTooltipContentMouseLeave = () => {
-    window.electronAPI.setIgnoreMouseEvents();
-    setIsTooltipVisible(false);
+    hideTimeoutRef.current = setTimeout(() => {
+      setIsTooltipVisible(false);
+      window.electronAPI.setIgnoreMouseEvents();
+    }, 100);
   };
 
   return (

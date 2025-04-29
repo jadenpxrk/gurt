@@ -215,6 +215,16 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
   ipcMain.handle("toggle-window", () => {
     try {
       deps.toggleMainWindow();
+      // Reset mouse events when toggling window
+      const mainWindow = deps.getMainWindow();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        try {
+          mainWindow.setIgnoreMouseEvents(false);
+          mainWindow.setIgnoreMouseEvents(true, { forward: true });
+        } catch (error) {
+          console.error("[Mouse Events] Error resetting during toggle:", error);
+        }
+      }
       return { success: true };
     } catch (error) {
       console.error("Error toggling window:", error);
@@ -258,6 +268,17 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
       // Get main window and send reset events
       const mainWindow = deps.getMainWindow();
       if (mainWindow && !mainWindow.isDestroyed()) {
+        // Reset mouse events
+        try {
+          mainWindow.setIgnoreMouseEvents(false);
+          mainWindow.setIgnoreMouseEvents(true, { forward: true });
+        } catch (error) {
+          console.error(
+            "[Mouse Events] Error resetting during app reset:",
+            error
+          );
+        }
+
         // Send reset events in sequence
         mainWindow.webContents.send("reset-view");
         mainWindow.webContents.send("reset");
@@ -315,8 +336,15 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
   ipcMain.handle("set-ignore-mouse-events", () => {
     const mainWindow = deps.getMainWindow();
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.setIgnoreMouseEvents(true, { forward: true }); // Forward enables tooltips etc.
-      return { success: true };
+      try {
+        // Always set to ignore with forward enabled
+        mainWindow.setIgnoreMouseEvents(true, { forward: true });
+        console.log("[Mouse Events] Set to ignore mode with forward");
+        return { success: true };
+      } catch (error) {
+        console.error("[Mouse Events] Error setting ignore mode:", error);
+        return { success: false, error: "Failed to set ignore mode" };
+      }
     }
     return { success: false, error: "Main window not available" };
   });
@@ -324,9 +352,41 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
   ipcMain.handle("set-interactive-mouse-events", () => {
     const mainWindow = deps.getMainWindow();
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.setIgnoreMouseEvents(false);
-      return { success: true };
+      try {
+        mainWindow.setIgnoreMouseEvents(false);
+        console.log("[Mouse Events] Set to interactive mode");
+        return { success: true };
+      } catch (error) {
+        console.error("[Mouse Events] Error setting interactive mode:", error);
+        return { success: false, error: "Failed to set interactive mode" };
+      }
     }
     return { success: false, error: "Main window not available" };
   });
+
+  // Add window creation handler to ensure mouse events are always ignored by default
+  const setInitialMouseEvents = (window: Electron.BrowserWindow) => {
+    try {
+      window.setIgnoreMouseEvents(true, { forward: true });
+      console.log("[Mouse Events] Initial state set to ignore with forward");
+    } catch (error) {
+      console.error("[Mouse Events] Error setting initial state:", error);
+    }
+  };
+
+  // Add the initialization to the window creation
+  const originalCreateWindow = deps.createWindow;
+  deps.createWindow = () => {
+    const window = originalCreateWindow();
+    setInitialMouseEvents(window);
+    return window;
+  };
+
+  // Ensure mouse events are ignored after window is ready
+  const mainWindow = deps.getMainWindow();
+  if (mainWindow) {
+    mainWindow.on("ready-to-show", () => {
+      setInitialMouseEvents(mainWindow);
+    });
+  }
 }
