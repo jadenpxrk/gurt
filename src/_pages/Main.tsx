@@ -1,25 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 
-import Queue from "../_pages/Queue";
-import Solutions from "../_pages/Solutions";
+import Queue from "./Queue";
+import Solutions from "./Solutions";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../contexts/toast";
 
-interface SubscribedAppProps {
+interface MainProps {
   currentLanguage: string;
   setLanguage: (language: string) => void;
 }
 
-const SubscribedApp: React.FC<SubscribedAppProps> = ({
-  currentLanguage,
-  setLanguage,
-}) => {
+function Main({ currentLanguage, setLanguage }: MainProps) {
   const queryClient = useQueryClient();
   const [view, setView] = useState<"queue" | "solutions" | "debug">("queue");
   const containerRef = useRef<HTMLDivElement>(null);
   const { showToast } = useToast();
 
-  // Let's ensure we reset queries etc. if some electron signals happen
   useEffect(() => {
     const cleanup = window.electronAPI.onResetView(() => {
       queryClient.invalidateQueries({
@@ -139,6 +135,6 @@ const SubscribedApp: React.FC<SubscribedAppProps> = ({
       ) : null}
     </div>
   );
-};
+}
 
-export default SubscribedApp;
+export default Main;

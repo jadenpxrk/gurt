@@ -1,5 +1,4 @@
 import { getStoreValue, setStoreValue } from "./main";
-// ipcHandlers.ts
 import { ipcMain, shell } from "electron";
 
 import { IIpcHandlerDeps } from "./main";
@@ -7,13 +6,11 @@ import { IIpcHandlerDeps } from "./main";
 export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
   console.log("Initializing IPC handlers");
 
-  // API Configuration handlers
   ipcMain.handle("get-api-config", async () => {
     try {
-      // Use imported store functions
       const apiKey = await getStoreValue("api-key");
-      const model = (await getStoreValue("api-model")) || "gpt-4o"; // Default model
-      const provider = (await getStoreValue("api-provider")) || "openai"; // Default provider
+      const model = (await getStoreValue("api-model")) || "gpt-4o";
+      const provider = (await getStoreValue("api-provider")) || "openai";
 
       if (!apiKey) {
         return { success: false, error: "API key not found" };

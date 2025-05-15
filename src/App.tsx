@@ -8,10 +8,9 @@ import {
 } from "./components/ui/toast";
 import { useCallback, useEffect, useState } from "react";
 
-import SubscribedApp from "./_pages/SubscribedApp";
+import Main from "./_pages/Main";
 import { ToastContext } from "./contexts/toast";
 
-// Create a React Query client
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -101,7 +100,7 @@ function App() {
         <ToastProvider>
           <div className="min-h-screen bg-transparent">
             {initialized && (
-              <SubscribedApp
+              <Main
                 currentLanguage={currentLanguage}
                 setLanguage={updateLanguage}
               />

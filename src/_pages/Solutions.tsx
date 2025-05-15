@@ -190,11 +190,8 @@ export interface SolutionsProps {
   currentLanguage: string;
   setLanguage: (language: string) => void;
 }
-const Solutions: React.FC<SolutionsProps> = ({
-  setView,
-  currentLanguage,
-  setLanguage,
-}) => {
+
+function Solutions({ setView, currentLanguage, setLanguage }: SolutionsProps) {
   const queryClient = useQueryClient();
   const [showDebugView, setShowDebugView] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -567,6 +564,6 @@ const Solutions: React.FC<SolutionsProps> = ({
       )}
     </>
   );
-};
+}
 
 export default Solutions;

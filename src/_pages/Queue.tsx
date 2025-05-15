@@ -30,11 +30,7 @@ interface QueueProps {
   setLanguage: (language: string) => void;
 }
 
-const Queue: React.FC<QueueProps> = ({
-  setView,
-  currentLanguage,
-  setLanguage,
-}) => {
+function Queue({ setView, currentLanguage, setLanguage }: QueueProps) {
   const { showToast } = useToast();
 
   const [isTooltipVisible, setIsTooltipVisible] = useState(false);
@@ -149,6 +145,6 @@ const Queue: React.FC<QueueProps> = ({
       </div>
     </div>
   );
-};
+}
 
 export default Queue;

@@ -77,12 +77,12 @@ interface DebugProps {
   setLanguage: (language: string) => void;
 }
 
-const Debug: React.FC<DebugProps> = ({
+function Debug({
   isProcessing,
   setIsProcessing,
   currentLanguage,
   setLanguage,
-}) => {
+}: DebugProps) {
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [tooltipHeight, setTooltipHeight] = useState(0);
   const { showToast } = useToast();
@@ -311,6 +311,6 @@ const Debug: React.FC<DebugProps> = ({
       </div>
     </div>
   );
-};
+}
 
 export default Debug;
