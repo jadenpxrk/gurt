@@ -18,3 +18,8 @@ wanted to see how complicated the app was. don't recommend using this, some comp
 
 - idea/tech is very simple
 - does not work on windows
+
+## demo
+
+https://github.com/user-attachments/assets/494cdf5a-4ec1-49a2-b7e6-7213e2769e71
+
