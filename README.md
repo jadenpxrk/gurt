@@ -12,7 +12,7 @@ literally interview coder
 
 ## some comments + why did i make this
 
-wanted to see how complicated the app was. don't recommend using this, some companies now have systems in place to log keys and other anticheating mechanisms in place. also leetcode interviews are probably the easiest type of technical interviews so if you can't solve a normal problem found in an interview, you might be cooked.
+wanted to see how complicated the app was. don't recommend using this, some companies now have systems in place to log keys and other anticheating mechanisms in place. also leetcode interviews are probably the easiest type of technical interviews so if you can't solve a normal problem found in an interview after some practice, you might be cooked. there are definitely better ways of testing candidates though.
 
 ## notes
 
