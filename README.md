@@ -12,4 +12,9 @@ literally interview coder
 
 ## some comments + why did i make this
 
-i wanted to see how complicated the app was. don't recommend using this, some companies now have systems in place to log keys and other anticheating mechanisms. also leetcode interviews are probably the easiest type of technical interviews you can get.
+wanted to see how complicated the app was. don't recommend using this, some companies now have systems in place to log keys and other anticheating mechanisms in place. also leetcode interviews are probably the easiest type of technical interviews so if you can't solve a normal problem found in an interview, you might be cooked.
+
+## notes
+
+- idea/tech is very simple
+- does not work on windows
